@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import db from "../Database/Config"
-import { collection ,onSnapshot,query,where} from "firebase/firestore";
+import { collection ,getDocs,query,where} from "firebase/firestore";
 
 function Admin(){
     const navigate=useNavigate();
@@ -13,25 +13,23 @@ function Admin(){
     let[msg,setMsg]=useState();
 
     let Login = async () => {
+        if (confirmDaten.Email === "" || confirmDaten.Password === "") {
+            setMsg("Bitte E-Mail und Passwort eingeben");
+            return;
+        }
         try {
             const collectionRef = collection(db, "Events");
             const q = query(collectionRef, where("EventDaten.Email", "==", confirmDaten.Email), where("EventDaten.Password", "==", confirmDaten.Password));
-            
-            // Verwende onSnapshot, um Änderungen in der Sammlung zu überwachen
-            const unsubscribe = onSnapshot(q, (snapshot) => {
-                snapshot.forEach((doc) => {
-                    const data = doc.data().EventDaten;
-    
-                    // Überprüfe, ob E-Mail und Passwort übereinstimmen
-                    if (data.Email === confirmDaten.Email && data.Password === confirmDaten.Password) {
-                      navigate("../AdminPage",{ state: { Daten: data } })
-                    } else {
-                        setMsg("Falsche Anmeldeinformationen");
-                    }
-                });
-            });
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                setMsg("Falsche Anmeldeinformationen");
+                return;
+            }
+            const data = snapshot.docs[0].data().EventDaten;
+            navigate("../AdminPage",{ state: { Daten: data } })
         } catch (error) {
             console.error("Fehler bei der Anmeldung:", error);
+            setMsg("Verbindung zur Datenbank fehlgeschlagen");
         }
     };
   

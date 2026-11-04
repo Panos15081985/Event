@@ -3,6 +3,7 @@ import { useNavigate,useLocation} from "react-router-dom";
 import { collection, onSnapshot,doc,updateDoc} from "firebase/firestore";
 import db from "../../Database/Config";
 import PositionFormatting from "../../components/PositionFormatting";
+import { normalizeGuests } from "../../guestData";
 
 function Gastmanagment(){
     const navigate = useNavigate();
@@ -34,7 +35,7 @@ function Gastmanagment(){
               const gastData = snapshot.data().Gast;
               const raumData = snapshot.data().RaumDaten
               setRaumDaten(raumData)
-              setGastList(gastData || []);
+              setGastList(normalizeGuests(gastData));
             } else {
               console.log('Das angegebene Event-Dokument existiert nicht.');
               setGastList([]); // Setzen Sie die Gastliste auf ein leeres Array, wenn das Dokument nicht existiert
@@ -58,7 +59,7 @@ function Gastmanagment(){
         };
         const handlePopState = () => {
           if (unsavedChanges && window.confirm('Sie haben möglicherweise ungespeicherte Änderungen. Wollen Sie die Seite wirklich verlassen?')) {
-            navigate('/AdminPage'); // Navigieren Sie zur AdminPage, wenn der Benutzer bestätigt
+            navigate('/AdminPage', { state: { Daten: EventDaten } }); // Navigieren Sie zur AdminPage, wenn der Benutzer bestätigt
           }
         };
     
@@ -69,16 +70,21 @@ function Gastmanagment(){
           window.removeEventListener('beforeunload', handleBeforeUnload);
           window.removeEventListener('popstate', handlePopState);
         };
-      }, [unsavedChanges, navigate]);
+      }, [unsavedChanges, navigate, EventDaten]);
     
     let randomPass=()=>{
         let length=7
         const characters = 'ABCDEFGHIJKLMNPQRSTUVWXYZ123456789';
+        const usedPasswords = new Set(gastList.map(gast => gast.Pass));
         let randomId = '';
-        for (let i = 0; i < length; i++) {
-            const randomIndex = Math.floor(Math.random() * characters.length);
-            randomId += characters.charAt(randomIndex);
-        }
+        // Generate again if another guest already has this password
+        do {
+            randomId = '';
+            for (let i = 0; i < length; i++) {
+                const randomIndex = Math.floor(Math.random() * characters.length);
+                randomId += characters.charAt(randomIndex);
+            }
+        } while (usedPasswords.has(randomId));
         setGastDaten({
             ...gastDaten,
             Pass:randomId
@@ -86,15 +92,31 @@ function Gastmanagment(){
     }
 
     let GastsList=()=>{
+        const tickets = parseInt(gastDaten.Ticket);
         if(
-            gastDaten.Vorname!==""&&
-            gastDaten.Nachname!==""&&
-            gastDaten.Ticket!==""&&
+            gastDaten.Vorname.trim()!==""&&
+            gastDaten.Nachname.trim()!==""&&
             gastDaten.Pass!==""
         ){
+            if(!Number.isInteger(tickets) || tickets < 1){
+                alert("Die Anzahl der Tickets muss eine Zahl größer als 0 sein")
+                return;
+            }
+            if(gastList.some(gast => gast.Pass === gastDaten.Pass)){
+                alert("Dieses Passwort ist bereits vergeben. Bitte erzeugen Sie ein neues.")
+                return;
+            }
+            // Tickets are stored as numbers so that calculations (+1 / -1) work correctly
+            const bookedTickets = gastDaten.Position.Tickets.reduce((sum, t) => sum + t, 0);
             setGastList([
                 ...gastList,
-                gastDaten
+                {
+                    ...gastDaten,
+                    Vorname: gastDaten.Vorname.trim(),
+                    Nachname: gastDaten.Nachname.trim(),
+                    Ticket: tickets,
+                    Rticket: tickets - bookedTickets
+                }
             ])
             setGastDaten({
                 Vorname:"",
@@ -110,7 +132,7 @@ function Gastmanagment(){
             setUnsavedChanges(true)
         }
         else{
-            alert("alle Felder auffühlen")
+            alert("Bitte alle Felder ausfüllen und ein Passwort erzeugen")
         }
     }
 
@@ -122,16 +144,21 @@ function Gastmanagment(){
             try {
                 // Das aktualisierte Dokument in die Datenbank schreiben
                 await updateDoc(eventDocRef, { Gast: gastList ,RaumDaten:RaumDaten });
+                setUnsavedChanges(false)
+                alert("Gespeichert")
             } catch (error) {
-                console.error('Fehler beim Hinzufügen des Gasts:', error);
+                console.error('Fehler beim Speichern der Gäste:', error);
+                alert("Die Änderungen konnten nicht gespeichert werden")
             }
-            setUnsavedChanges(false)
         } 
     }
 
     let search=(Nachname)=>{
         let index = gastList.findIndex(item => item.Nachname === Nachname);
-        console.log(index)
+        if(Nachname===""){
+            setSearchG({Index:-1})
+            return;
+        }
         index!==-1?
         setSearchG({
             Vorname:gastList[index].Vorname,
@@ -151,13 +178,14 @@ function Gastmanagment(){
 
     let edit=(gastNum)=>{
         alert("Die Daten vom Gast werden bei Import Gäste laden. Sie können die Daten ändern und wieder in der Liste hinzufügen")
+        // deleteGast also frees the guest's chairs, so the bookings start empty again
         setGastDaten({
             Vorname: gastList[gastNum].Vorname,
             Nachname: gastList[gastNum].Nachname,
-            Ticket: gastList[gastNum].Ticket,
-            Rticket:gastList[gastNum].Rticket,
+            Ticket: String(gastList[gastNum].Ticket),
+            Rticket: String(gastList[gastNum].Ticket),
             Pass: gastList[gastNum].Pass,
-            Position:gastList[gastNum].Position
+            Position:{ Table:[], Tickets:[] }
         })
         deleteGast(gastNum)
         setUnsavedChanges(true)
@@ -165,12 +193,13 @@ function Gastmanagment(){
 
     let deleteGast=(gastNum)=>{
         let NewList=[...gastList];
-        let Chairs=RaumDaten.Chairs
+        let Chairs=(RaumDaten && RaumDaten.Chairs) || []
         let newlistChairs=[...Chairs]
-        if(NewList[gastNum].Position.Table.length!==0){
+        if(NewList[gastNum].Position.Table.length!==0 && newlistChairs.length!==0){
             alert("Die Daten von Gast werden automatisch von Plan gelöscht werden")
             NewList[gastNum].Position.Table.forEach(tableNumber => {
                 let index = newlistChairs.findIndex(item => item.Table === tableNumber);
+                if(index===-1) return;
                 newlistChairs[index].Chairs.forEach(function(chair,cindex){
                     if(chair.Pass===NewList[gastNum].Pass){
                         let Empty={
@@ -184,10 +213,12 @@ function Gastmanagment(){
                 })
             });
         }
-        setRaumDaten({
-            ...RaumDaten,
-            Chairs:newlistChairs
-        })
+        if(RaumDaten){
+            setRaumDaten({
+                ...RaumDaten,
+                Chairs:newlistChairs
+            })
+        }
         NewList.splice(gastNum,1);
         setGastList(NewList)
         setSearchG({Index:-1})
@@ -195,8 +226,7 @@ function Gastmanagment(){
     }
 
     let backToMenu=()=>{
-        const confirmed = window.confirm("Es scheint, als ob Sie Ihr Projekt abgeschlossen haben und nun Ihre Änderungen sichern möchten, bevor Sie zum Menü zurückkehren.")
-        if(confirmed)
+        if(!unsavedChanges || window.confirm("Sie haben ungespeicherte Änderungen. Wollen Sie wirklich zum Menü zurückkehren?"))
             navigate("../AdminPage",{ state: { Daten: EventDaten } })
     }
    
@@ -280,7 +310,9 @@ function Gastmanagment(){
                                 value={gastDaten.Nachname}
                             />
                             <input
-                                placeholder="Tickets/Einlandungen"
+                                placeholder="Tickets/Einladungen"
+                                type="number"
+                                min="1"
                                 onChange={(event)=>{
                                     setGastDaten({
                                         ...gastDaten,

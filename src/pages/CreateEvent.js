@@ -2,6 +2,7 @@ import {useState} from 'react'
 import db from "../Database/Config"
 import { collection ,query, where, getDocs,addDoc,doc,updateDoc} from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
+import { formatDate } from "../dateFormat";
 
 function CreateEvent(){
     
@@ -36,14 +37,14 @@ function CreateEvent(){
                     const RefDocument =await addDoc(collectionRef, { 
                         EventDaten: eventDaten,
                         RaumDaten:"",
-                        Gast:""
+                        Gast:[]
                     });
                     let newData={
                         ...eventDaten,
                         EventId:RefDocument.id
                     }
                     await updateDoc(doc(collectionRef,RefDocument.id),{"EventDaten":newData})
-                    alert("create Complete ")
+                    alert("Event erfolgreich erstellt")
                     navigate("../Admin")
                 }
                 else{
@@ -54,7 +55,8 @@ function CreateEvent(){
                 }
             }
             catch(error){
-                console.log(error)
+                console.error(error)
+                alert("Verbindung zur Datenbank fehlgeschlagen")
             }
         }
         else{alert("Bitte füllen Sie alle erforderlichen Felder aus.")}
@@ -85,14 +87,7 @@ function CreateEvent(){
                         className="Login_inp"
                         placeholder="Datum"
                         type="date"
-                        onChange={(e) => {
-                            const selectedDate = new Date(e.target.value);
-                            const day = String(selectedDate.getDate()).padStart(2, '0');
-                            const month = String(selectedDate.getMonth() + 1).padStart(2, '0'); // Monate sind nullbasiert, deshalb +1
-                            const year = selectedDate.getFullYear();
-                            const formattedDate = `${day}-${month}-${year}`;
-                            setEventDaten({ ...eventDaten, Date: formattedDate });
-                        }}
+                        onChange={(e) => { setEventDaten({ ...eventDaten, Date: formatDate(e.target.value) }); }}
                     />
                     <input
                         className="Login_inp"

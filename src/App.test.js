@@ -1,8 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+jest.mock('./Database/Config', () => ({ __esModule: true, default: {} }));
+
+test('renders the start page', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Event' })).toBeInTheDocument();
+  expect(screen.getByText('Erstelle dein Event')).toBeInTheDocument();
 });

@@ -2,6 +2,17 @@ import { useState } from "react";
 import ChairFormatting from "./ChairFormatting";
 import Plan from "./Plan";
 
+const emptyBooking = {
+    Table:"",
+    FreeChairs:"",
+    TableNumber:"",
+    Vorname:"",
+    Nachname:"",
+    Pass:"",
+    Rticket:"",
+    IndexGastList:""
+};
+
 
 function PositionFormatting(props){
     const setUnsavedChanges=props.setUnsavedChanges
@@ -10,15 +21,7 @@ function PositionFormatting(props){
     const gastList=props.gastList;
     const setGastList=props.setGastList
     let[externWindowTable,setExternWindowTable]=useState(false);
-    let[bookDaten,setBookDaten]=useState({
-        Table:"",
-        FreeChairs:"",
-        Vorname:"",
-        Nachname:"",
-        Pass:"",
-        Rticket:"",
-        IndexGastList:""
-    });
+    let[bookDaten,setBookDaten]=useState(emptyBooking);
     let[book,setBook]=useState(false)
     let[chairsProTable,setChairsProTable]=useState([]);
     let Chairs=[]
@@ -39,7 +42,11 @@ function PositionFormatting(props){
     }
     let searchGastList=(pass)=>{
         let index = gastList.findIndex(item => item.Pass === pass);
-        if(index!==-1 && gastList[index].Rticket > 0){
+        if(index===-1){
+            // Forget a previously found guest when the password no longer matches
+            setBookDaten((prev)=>({...prev, Vorname:"", Nachname:"", Pass:"", Rticket:"", IndexGastList:""}))
+        }
+        else if(gastList[index].Rticket > 0){
             setBookDaten({
                 ...bookDaten,
                 Vorname:gastList[index].Vorname,
@@ -50,7 +57,7 @@ function PositionFormatting(props){
             })
         }
 
-        else if( index!==-1 && gastList[index].Rticket === 0){alert("Sie haben keine Ticket mehr")}
+        else {alert("Der Gast hat keine Tickets mehr")}
       
     }
 
@@ -69,31 +76,34 @@ function PositionFormatting(props){
                         newlistChairs[bookDaten.Table].Chairs[cidx].Status=false;
                     }
                 })
+                if(bookTicket===0){
+                    alert("Es gibt keinen freien Platz an diesem Tisch")
+                    return;
+                }
                 newGastList[bookDaten.IndexGastList].Rticket=newRticket-bookTicket
                 let PositionTableGast= newGastList[bookDaten.IndexGastList].Position.Table;
                 let PositionTicketsGast= newGastList[bookDaten.IndexGastList].Position.Tickets;
                 let PositionTable=newlistChairs[bookDaten.Table].Table;
-                PositionTicketsGast.push(bookTicket)
-                PositionTableGast.push(PositionTable) 
+                // Same table again: add to the existing entry instead of a duplicate
+                let ExistTable=PositionTableGast.findIndex(Table=>Table===PositionTable);
+                if(ExistTable!==-1){
+                    PositionTicketsGast[ExistTable]=PositionTicketsGast[ExistTable]+bookTicket
+                }
+                else{
+                    PositionTicketsGast.push(bookTicket)
+                    PositionTableGast.push(PositionTable)
+                }
                 setRaumDaten({
                     ...RaumDaten,
                     Chairs:newlistChairs
                 })
                 setGastList(newGastList)
-                setBook(!book)
-                setBookDaten({
-                    Table:"",
-                    FreeChairs:"",
-                    Vorname:"",
-                    Nachname:"",
-                    Pass:"",
-                    Rticket:"",
-                    IndexGastList:""
-                })
+                setBook(false)
+                setBookDaten(emptyBooking)
                 setUnsavedChanges(true)
-                alert("booking coplete")
+                alert("Buchung erfolgreich")
         }
-        else{alert("Falsche Password")}
+        else{alert("Falsches Passwort")}
     }
 
     let cancelation=()=>{
@@ -102,7 +112,6 @@ function PositionFormatting(props){
             let Chair=table.Chairs;
             setChairsProTable(Chair)
             setExternWindowTable(true)
-            setUnsavedChanges(true)
         }
         else(alert("Suchen Sie ein Tisch aus"))
     }
@@ -124,7 +133,9 @@ function PositionFormatting(props){
                 NewgastList[gidx].Rticket=ZTicket;
                 NewgastList[gidx].Position={Table:[],Tickets:[]}
             })
-            setBookDaten({})
+            setBookDaten(emptyBooking)
+            setBook(false)
+            setExternWindowTable(false)
             setGastList(NewgastList)
             setRaumDaten({
                 ...RaumDaten,
