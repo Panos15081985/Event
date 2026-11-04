@@ -23,14 +23,17 @@ function ChairFormatting(props){
             let newlistTable=[...Chairs];
             let Table = Chairs[bookDaten.Table].Table
             let indegastOfList = gastList.findIndex(item => item.Pass === chair.Pass);
+            if(indegastOfList===-1) return;
             let indexPosTable = gastList[indegastOfList].Position.Table.findIndex(item => item === Table)
             let Rticket =gastList[indegastOfList].Rticket
             let PosTicket = gastList[indegastOfList].Position.Tickets[indexPosTable]
-            newGastList[indegastOfList].Rticket=Rticket+1;
-            newGastList[indegastOfList].Position.Tickets[indexPosTable]=PosTicket-1
-            if(newGastList[indegastOfList].Position.Tickets[indexPosTable]===0){
-                newGastList[indegastOfList].Position.Tickets.splice(indexPosTable,1);
-                newGastList[indegastOfList].Position.Table.splice(indexPosTable,1)
+            newGastList[indegastOfList].Rticket=Number(Rticket)+1;
+            if(indexPosTable!==-1){
+                newGastList[indegastOfList].Position.Tickets[indexPosTable]=Number(PosTicket)-1
+                if(newGastList[indegastOfList].Position.Tickets[indexPosTable]===0){
+                    newGastList[indegastOfList].Position.Tickets.splice(indexPosTable,1);
+                    newGastList[indegastOfList].Position.Table.splice(indexPosTable,1)
+                }
             }
             let Empty={
                 Nachname:"",
@@ -53,7 +56,7 @@ function ChairFormatting(props){
             if(gastList[indexGast].Rticket>0){
                 let newGastList=[...gastList];
                 let Rticket=newGastList[indexGast].Rticket;
-                newGastList[indexGast].Rticket=Rticket-1;
+                newGastList[indexGast].Rticket=Number(Rticket)-1;
                 let Chairs=RaumDaten.Chairs;
                 let newlistTable=[...Chairs];
                 newlistTable[bookDaten.Table].Chairs[cidx].Nachname=newGastList[indexGast].Nachname;
@@ -68,7 +71,7 @@ function ChairFormatting(props){
                 }
                 else{
                     let Ticket = newGastList[indexGast].Position.Tickets[indexPosTable];
-                    newGastList[indexGast].Position.Tickets[indexPosTable]=Ticket+1
+                    newGastList[indexGast].Position.Tickets[indexPosTable]=Number(Ticket)+1
                 }
                 setGastList(newGastList)
                 setRaumDaten({
@@ -79,7 +82,7 @@ function ChairFormatting(props){
                 setUnsavedChanges(true)
             }
             else{
-                alert("Sie haben keine Ticket mehr")
+                alert("Der Gast hat keine Tickets mehr")
             }
         }
     }
@@ -98,13 +101,13 @@ function ChairFormatting(props){
                     let Chair="";
                     chair.Pass!==""?
                         Chair= <div key={cidx} className="chairFormattingChair">
-                                    <div><img src="foto/chair.png" style={{width:"30px"}}/> : {cidx+1}</div>
+                                    <div><img alt="Stuhl" src="/foto/chair.png" style={{width:"30px"}}/> : {cidx+1}</div>
                                     <p> {chair.Nachname} </p>
                                     <p> {chair.Pass} </p>
                                     <button className="eventButton" onClick={()=>{deleteDaten(cidx,chair)}}>delete</button>
                                 </div>
                         :Chair=<div key={cidx} className="chairFormattingChair">
-                                    <div><img src="foto/chair.png" style={{width:"30px"}}/> : {cidx+1}</div>
+                                    <div><img alt="Stuhl" src="/foto/chair.png" style={{width:"30px"}}/> : {cidx+1}</div>
                                     <input
                                         placeholder="Pass von Gast"
                                         onChange={(event)=>{searchGast(event.target.value)}}

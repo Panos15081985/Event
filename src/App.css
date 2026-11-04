@@ -2,7 +2,7 @@ body{
   background:linear-gradient(to right, rgb(253, 251, 250),rgb(223, 216, 207));
 }
 .Login_Cont{
-   background-image: url("../public/foto/background.png");
+   background-image: url("./assets/background.png");
    background-position: center;
    background-repeat: no-repeat;
    background-size: cover;

@@ -2,7 +2,7 @@ import { useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import db from "../Database/Config";
 import { useNavigate } from "react-router-dom";
-import { collection,doc,updateDoc} from "firebase/firestore";
+import { collection,doc,getDoc,updateDoc} from "firebase/firestore";
 function Saal(){
     const navigate=useNavigate();
     const {state} = useLocation();
@@ -10,12 +10,9 @@ function Saal(){
     const data = daten.Raum
     const eventData = daten.EventData;
     const [onlyAdmin,setOnlyAdmin]=useState(false);
-    let maxNumber = Math.max(...data.Table.map(Number));
-    let maxNumberstring=maxNumber.toString();
-    let ziffern=maxNumberstring.split("");
-    let horizontal= parseFloat(ziffern[0])
+    // One entry per row of the room (the row count comes from Raummanagment)
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const horizontalArray = Array.from({ length: horizontal+1 }, (_, index) => alphabet[index]);
+    const horizontalArray = Array.from({ length: Number(data.horizontal) }, (_, index) => alphabet[index]);
    
     const[chairsTable,setChairsTable]=useState("")
     const[chairSeparate,setChairSeparate]=useState(false)
@@ -26,41 +23,37 @@ function Saal(){
     },[chairSeparate])
   
 
-    let chairFunction=(chair,table)=>{
-        const Chairs= Array.from({length:chair}, (_, index) => index + 1)
+    const emptyChairs=(count)=>Array.from({length:count}, () => ({
+        Vorname: "",
+        Nachname: "",
+        Pass: "",
+        Status: true
+    }))
+
+    let chairFunction=(value,table)=>{
+        const chair = parseInt(value);
+        const valid = Number.isInteger(chair) && chair > 0;
         if(chairSeparate){
-            let Table = {
-                Ch:chair,
-                Table:table,
-                Chairs: Chairs.map((chair) => ({
-                  Vorname: "",
-                  Nachname: "",
-                  Pass: "",
-                  Status: true
-                }))
-              };
-              console.log(Table)
-              setChairProTable((prev)=>([
-                ...prev,Table
-              ]))
+            // Replace the entry of this table instead of adding a duplicate
+            setChairProTable((prev)=>{
+                const others = prev.filter(item => item.Table !== table);
+                return valid ? [...others,{ Ch:chair, Table:table, Chairs:emptyChairs(chair) }] : others;
+            })
         }
         else{
-            const Tables = data.Table.map((table) => ({
-                Ch:chair,
-                Table:table,
-                Chairs: Chairs.map((Chair) => ({
-                    Vorname: "",
-                    Nachname: "",
-                    Pass: "",
-                    Status:true
-                }))}
-            ))
-            setChairsTable(chair)
-            setChairProTable(Tables)
+            setChairsTable(value)
+            setChairProTable(valid
+                ? data.Table.map((table) => ({ Ch:chair, Table:table, Chairs:emptyChairs(chair) }))
+                : [])
         }
     }
     
     let ok= async ()=>{
+        const missing = data.Table.filter(table => !chairProTable.some(item => item.Table === table));
+        if(missing.length!==0){
+            alert("Bitte geben Sie für jeden Tisch die Anzahl der Stühle ein (eine Zahl größer als 0)")
+            return;
+        }
         let Data={
             Chairs:chairProTable,
             DanceFloor:data.dance,
@@ -72,14 +65,27 @@ function Saal(){
         }
     
         try{
-        const collectionRef = collection(db,"Events");
-        await updateDoc(doc(collectionRef,data.EventId),{"RaumDaten":Data});
+            const collectionRef = collection(db,"Events");
+            const eventRef = doc(collectionRef,data.EventId);
+            // A new plan replaces all tables, so existing seat bookings of guests are reset
+            const snapshot = await getDoc(eventRef);
+            const gaeste = Array.isArray(snapshot.data()?.Gast) ? snapshot.data().Gast : [];
+            const hasBookings = gaeste.some(gast => gast.Position && gast.Position.Table.length !== 0);
+            if(hasBookings && !window.confirm("Der neue Plan ersetzt den alten. Alle gebuchten Sitzplätze der Gäste werden zurückgesetzt. Fortfahren?")){
+                return;
+            }
+            const resetGaeste = gaeste.map(gast => ({
+                ...gast,
+                Rticket: gast.Ticket,
+                Position: { Table: [], Tickets: [] }
+            }));
+            await updateDoc(eventRef,{"RaumDaten":Data, "Gast":resetGaeste});
+            navigate("../AdminPage",{ state: { Daten: eventData } })
         }
         catch(error){
-            console.log(error)
+            console.error(error)
+            alert("Der Plan konnte nicht gespeichert werden")
         }
-        
-        navigate("../AdminPage",{ state: { Daten: eventData } })
  
       
     }
@@ -91,6 +97,8 @@ function Saal(){
                         <p>Wie viele Stühle hat jeden Tisch:</p>
                         <input
                         placeholder="Stühle"
+                        type="number"
+                        min="1"
                         onChange={(event)=>{chairFunction(event.target.value)}}
                         value={chairsTable}
                     /></div>}
@@ -131,7 +139,7 @@ function Saal(){
                                             let pos=trix+""+tdix;
                                             let dance=data.dance.includes(pos);
                                             let Table=data.Table.includes(pos)
-                                            let table=<td className="tdEmpty"></td>
+                                            let table=<td key={tdix} className="tdEmpty"></td>
                                             let numT=0
                                             if(dance && nummerDanceFloor===true){
                                                 data.dance.forEach((number) => {
@@ -150,6 +158,8 @@ function Saal(){
                                                                                     <label>Stühle:</label>
                                                                                     <input
                                                                                         placeholder="Zahl"
+                                                                                        type="number"
+                                                                                        min="1"
                                                                                         onBlur={(event)=>{chairFunction(event.target.value,pos)}}
                                                                                     /> 
                                                                                 </div>   

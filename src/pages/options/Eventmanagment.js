@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate,useLocation} from "react-router-dom";
 import db from "../../Database/Config";
-import { collection, doc, deleteDoc,getFirestore,updateDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, getDocs, query, where, updateDoc } from 'firebase/firestore';
+import { formatDate, toInputDate } from "../../dateFormat";
 
 function Eventmanagment(){
 
@@ -13,39 +14,60 @@ function Eventmanagment(){
     let[oldPass,setOldPass]=useState(false)
     let[emailPass,setEmailPass]=useState(false)
     let[delEvent,setDelEvent]=useState(false)
+    let[saved,setSaved]=useState(EventDaten)
 
     let deleteEvent=()=>{
         const userConfirmed = window.confirm("Sind Sie sicher, dass Sie das Event komplett stornieren möchten?");
         if(userConfirmed){
-            const firestore = getFirestore();
-            const eventId = Event.EventId;
-            const eventDocRef = doc(firestore, 'Events', eventId);
+            const eventDocRef = doc(db, 'Events', EventDaten.EventId);
             deleteDoc(eventDocRef)
             .then(() => {
-                console.log('Event erfolgreich gelöscht.');
+                alert('Event erfolgreich gelöscht.');
                 navigate("../")
             })
             .catch((error) => {
                 console.error('Fehler beim Löschen des Dokuments:', error);
+                alert("Das Event konnte nicht gelöscht werden")
             });
         }
     }
 
+    // Checks that no other event already uses this value (name or e-mail)
+    let isTaken= async(field,value)=>{
+        const q = query(collection(db, 'Events'), where(`EventDaten.${field}`, "==", value));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.some(d => d.id !== EventDaten.EventId);
+    }
+
     let SaveDaten= async()=>{
-        const confirmed = window.confirm("Es scheint, als ob Sie Ihr Projekt abgeschlossen haben und nun Ihre Änderungen sichern möchten, bevor Sie zum Hauptmenü zurückkehren.")
-        if(confirmed){
-            const eventsCollectionRef = collection(db, 'Events');
-            const eventDocRef = doc(eventsCollectionRef, Event.EventId);
-            try {
-                // Das aktualisierte Dokument in die Datenbank schreiben
-                await updateDoc(eventDocRef, { EventDaten:Event });
-                alert("Daten gespeichert")
-            
-            
-            } catch (error) {
-                console.error('Fehler beim Hinzufügen des Gasts:', error);
-            } 
+        if(Event.NameEvent.trim()==="" || Event.Email.trim()==="" || Event.Password===""){
+            alert("Name, E-Mail und Passwort dürfen nicht leer sein.")
+            return;
         }
+        const confirmed = window.confirm("Möchten Sie Ihre Änderungen speichern?")
+        if(confirmed){
+            const eventDocRef = doc(collection(db, 'Events'), EventDaten.EventId);
+            try {
+                if(Event.NameEvent!==EventDaten.NameEvent && await isTaken("NameEvent",Event.NameEvent)){
+                    alert("Der Name für das Event ist bereits vergeben. Bitte wählen Sie einen anderen Namen.")
+                    return;
+                }
+                if(Event.Email!==EventDaten.Email && await isTaken("Email",Event.Email)){
+                    alert("Die E-Mail ist bereits vergeben. Bitte wählen Sie eine andere E-Mail.")
+                    return;
+                }
+                await updateDoc(eventDocRef, { EventDaten:Event });
+                setSaved(Event)
+                alert("Daten gespeichert")
+            } catch (error) {
+                console.error('Fehler beim Speichern:', error);
+                alert("Die Daten konnten nicht gespeichert werden")
+            }
+        }
+    }
+
+    let backToMenu=()=>{
+        navigate("../AdminPage",{ state: { Daten: saved } })
     }
 
     let PassDaten=(pass)=>{
@@ -63,7 +85,8 @@ function Eventmanagment(){
     
     return(
         <div className="eventmanagmentCont">
-            <h1 className="raum_name">{EventDaten.NameEvent}</h1>
+            <h1 className="raum_name">{saved.NameEvent}</h1>
+            <button className="eventButton" onClick={backToMenu}>zurück zum Menu</button>
             <h3 className="settings_ConTitle">Eventmanagment</h3>
             <p> Beim Eventmanagement haben Sie die Möglichkeit, die Informationen zu Ihrer Veranstaltung 
                 nach Bedarf zu ändern. Sie können den Veranstaltungsnamen, die Uhrzeit 
@@ -83,15 +106,8 @@ function Eventmanagment(){
                         <input
                             placeholder="Datum"
                             type="date"
-                            onChange={(e) => {
-                                const inputValue = e.target.value;
-                                const selectedDate = new Date(inputValue);
-                                const day = String(selectedDate.getDate()).padStart(2, '0');
-                                const month = String(selectedDate.getMonth() + 1).padStart(2, '0'); // Monate sind nullbasiert, deshalb +1
-                                const year = selectedDate.getFullYear();
-                                const formattedDate = `${day}-${month}-${year}`;
-                                setEvent({ ...Event, Date: formattedDate });
-                            }}
+                            value={toInputDate(Event.Date)}
+                            onChange={(e) => { setEvent({ ...Event, Date: formatDate(e.target.value) }); }}
                         />
                         <input
                             placeholder="Uhrzeit"
@@ -104,7 +120,8 @@ function Eventmanagment(){
                     {oldPass && <div className="eventmanagmentInputs">
                         <input
                         placeholder="altes Passwort"
-                        onChange={(e)=>{e.target.value===Event.Password && PassDaten(1)}}
+                        type="password"
+                        onChange={(e)=>{e.target.value===saved.Password && PassDaten(1)}}
                         />
                     </div>}
                     {emailPass && <div className="eventmanagmentInputs">
@@ -123,7 +140,8 @@ function Eventmanagment(){
                     {delEvent && <div className="eventmanagmentInputs">
                         <input
                         placeholder="Passwort"
-                        onChange={(e)=>{e.target.value===Event.Password && deleteEvent()}}
+                        type="password"
+                        onChange={(e)=>{e.target.value===saved.Password && deleteEvent()}}
                         />
                     </div>}
                     <button className="eventButton" onClick={SaveDaten}>Änderungen speichern</button>

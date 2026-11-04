@@ -27,10 +27,10 @@ function Plan(props){
                                         nummerDanceFloor=false
                                     }
                                     else if(dance){table=""}
-                                    else if(Table){
+                                    else if(Table && Chairs.some(item => item.Table === pos)){
                                         let index = Chairs.findIndex(item => item.Table === pos);
                                         let filterTable=Chairs[index].Chairs.filter(item =>item.Status === false);
-                                        let freeChairs = Chairs[index].Ch - filterTable.length;
+                                        let freeChairs = Number(Chairs[index].Ch) - filterTable.length;
                                         table = <td 
                                                     key={Tdix}
                                                     style={{cursor:"pointer"}} 
@@ -43,7 +43,7 @@ function Plan(props){
                                                                                 })}}
                                                 >
                                                     <p>Tisch: {pos}</p> 
-                                                    <p> <img alt="clip Art" src="foto/chair.png" style={{width:"30px"}}/>: {freeChairs}</p>
+                                                    <p> <img alt="clip Art" src="/foto/chair.png" style={{width:"30px"}}/>: {freeChairs}</p>
                                                 </td>
                                     }
                                     return(

@@ -11,7 +11,7 @@ function AdminPage(){
             <h1>{EventDaten.NameEvent}</h1>
             <h3 className="settings_ConTitle">Einstellungen</h3>
             <div className="settings" >
-                <div className="options" style={{ backgroundImage: 'url("foto/Raum.png")' }}>
+                <div className="options" style={{ backgroundImage: 'url("/foto/Raum.png")' }}>
                     <h2 style={{ backgroundColor:"rgb(188,107,26"}}>Raummanagment</h2>
                     <div 
                         className="Thema" 
@@ -26,7 +26,7 @@ function AdminPage(){
                             die Tanzfläche nach Ihren Wünschen.</p>
                     </div>
                 </div>
-                <div className="options" style={{ backgroundImage: 'url("foto/Gast.png")' }}>
+                <div className="options" style={{ backgroundImage: 'url("/foto/Gast.png")' }}>
                     <h2 style={{ backgroundColor:"rgb(169,137,116"}}>Gastmanagment</h2>
                     <div 
                         className="Thema" 
@@ -39,7 +39,7 @@ function AdminPage(){
                             Sitzplätze auszuwählen, oder Sie können die Sitzplätze selbst bestimmen.</p>
                     </div>
                 </div>
-                <div className="options" style={{ backgroundImage: 'url("foto/Event.png")' }}>
+                <div className="options" style={{ backgroundImage: 'url("/foto/Event.png")' }}>
                     <h2 style={{ backgroundColor:"rgb(185,32,26"}}>Eventmanagment</h2>
                     <div 
                         className="Thema" 
